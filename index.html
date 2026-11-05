@@ -212,7 +212,6 @@ svg{display:block}
 .ev-title{flex:1;font-weight:700;min-width:0;overflow-wrap:anywhere}
 .ev-title .rep{display:inline-block;color:var(--muted);vertical-align:-1px;margin-left:3px}
 .ev-title .rep svg{width:13px;height:13px}
-.ev-who{font-size:.72rem;font-weight:800;color:var(--c);background:color-mix(in srgb,var(--c) 15%,transparent);padding:2px 8px;border-radius:999px;white-space:nowrap}
 .meal-chip{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:var(--warm-soft);border-radius:12px;padding:7px 10px;font-size:.9rem;font-weight:700;color:var(--ink)}
 .meal-chip .mc-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
 .meal-chip .mc-main b{font-size:.64rem;text-transform:uppercase;letter-spacing:.07em;color:var(--warm);font-weight:800}
@@ -387,8 +386,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 .pick.on{border-color:var(--warm);background:var(--warm-soft)}
 .divider{height:1px;background:var(--line);margin:18px 0}
 .set-sec h3{font-size:1.08rem;margin:2px 0 10px}
-.person-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
-.person-row input[type=color]{width:46px;height:46px;flex:none;border:1px solid var(--line);border-radius:12px;padding:4px;background:var(--card)}
 .group-row{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:14px;padding:10px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
 .group-row .g-slots{grid-column:1/-1}
 .statusbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:.88rem;margin-bottom:12px;line-height:1.45}
@@ -459,7 +456,7 @@ const okColor = c => /^#[0-9a-f]{6}$/i.test(c || '') ? c : '#8a7f73';
 const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
 const listWords = a => a.length <= 1 ? (a[0] || '') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
 
-const APP_VERSION = 'Nov 5, 2026 · 10:30 am';
+const APP_VERSION = 'Nov 5, 2026 · 3:45 pm';
 const store = (() => {
   const mem = {}; let ok = true;
   try { localStorage.setItem('homeplanner.probe', '1'); localStorage.removeItem('homeplanner.probe'); } catch (e) { ok = false; }
@@ -516,7 +513,7 @@ const svg = n => I[n] || '';
 /* ---------------- data ---------------- */
 const COLLS = ['events', 'recipes', 'plan', 'extras', 'checks', 'items'];
 const FAMILY = 'Family', FAMILY_COLOR = '#2f8a6a';
-const DEFAULT_PEOPLE = [{ name: 'Me', color: '#c4673a' }, { name: 'Partner', color: '#3d6fb0' }, { name: 'Baby', color: '#c99a1c' }];
+const DEFAULT_PEOPLE = [], KID_COLOR = '#c99a1c', EVENT_COLOR = FAMILY_COLOR; // events aren't tagged by person
 const DEFAULT_STORES = ['Vons', 'Costco'];
 const DEFAULT_GROUPS = [{ id: 'family', name: 'Family', slots: ['Breakfast', 'Lunch', 'Dinner'] }, { id: 'max', name: 'Baby', slots: ['Breakfast', 'Lunch', 'Dinner', 'Snacks'] }];
 const B = 'Breakfast', L = 'Lunch', D = 'Dinner';
@@ -672,7 +669,7 @@ function normalize(d) {
   gs = gs.filter(g => g.id === 'family').concat(gs.filter(g => g.id !== 'family'));
   d.settings = {
     name: s.name || 'Our Home',
-    people: Array.isArray(s.people) ? s.people.filter(p => p && p.name).map(p => ({ name: String(p.name), color: okColor(p.color) })) : DEFAULT_PEOPLE.map(p => Object.assign({}, p)),
+    people: [],
     groups: gs,
     stores: Array.isArray(s.stores) && s.stores.length ? s.stores.map(String) : DEFAULT_STORES.slice(),
     weekStart: s.weekStart === 1 ? 1 : 0,
@@ -725,8 +722,7 @@ const groupName = gid => (groups().find(g => g.id === gid) || { name: gid }).nam
 const kidGroups = () => groups().filter(g => g.id !== 'family');
 function groupColor(gid) {
   if (gid === 'family') return FAMILY_COLOR;
-  const n = groupName(gid), p = data.settings.people.find(x => x.name === n);
-  return p ? okColor(p.color) : '#7a6fb0';
+  return KID_COLOR;
 }
 const curGroup = v => groupIds().indexOf(v) >= 0 ? v : 'family';
 function allSlots() { const out = []; groups().forEach(g => g.slots.forEach(s => out.push({ g: g.id, s: s }))); return out; }
@@ -772,11 +768,6 @@ function occursOn(ev, d) {
   }
 }
 function eventsOn(d) { return live('events').filter(e => occursOn(e, d)).sort((a, b) => (a.time || '').localeCompare(b.time || '') || a.title.localeCompare(b.title)); }
-function personColor(name) {
-  if (name === FAMILY) return FAMILY_COLOR;
-  const p = data.settings.people.find(x => x.name === name);
-  return p ? okColor(p.color) : '#8a7f73';
-}
 
 /* ---------------- ingredients ---------------- */
 const UNIT_MAP = { cup: 'cup', cups: 'cup', c: 'cup', tbsp: 'tbsp', tbs: 'tbsp', tablespoon: 'tbsp', tablespoons: 'tbsp', tsp: 'tsp', teaspoon: 'tsp', teaspoons: 'tsp',
@@ -1246,11 +1237,10 @@ function pendingBanner() {
     '<span>' + fmtDay(f.d) + ' · ' + esc(slotLabel(f.g, f.s)) + ' — tap to update the pantry' + (pm.length > 1 ? ' · ' + (pm.length - 1) + ' more to check' : '') + '</span></button>';
 }
 function evRow(e, d) {
-  const c = personColor(e.who);
-  return '<button class="ev" style="--c:' + c + '" data-act="edit-event" data-id="' + esc(e.id) + '" data-date="' + d + '">' +
+  return '<button class="ev" style="--c:' + EVENT_COLOR + '" data-act="edit-event" data-id="' + esc(e.id) + '" data-date="' + d + '">' +
     '<span class="ev-time">' + (e.time ? fmtTime(e.time) : 'All day') + '</span>' +
     '<span class="ev-title">' + esc(e.title) + (e.repeat && e.repeat !== 'none' ? '<span class="rep" title="Repeats">' + svg('repeat') + '</span>' : '') + '</span>' +
-    (e.who ? '<span class="ev-who">' + esc(e.who) + '</span>' : '') + '</button>';
+    '</button>';
 }
 function mealChip(d, g, s) {
   const p = planEntry(d, g, s), lbl = mealLabel(d, g, s); if (!lbl) return '';
@@ -1280,7 +1270,7 @@ function viewCalendar() {
   return h;
 }
 function monthLabels(d) {
-  const labs = eventsOn(d).map(e => ({ t: e.title, c: personColor(e.who), ev: true }));
+  const labs = eventsOn(d).map(e => ({ t: e.title, c: EVENT_COLOR, ev: true }));
   slotsOf('family').forEach(sl => { const l = mealLabel(d, 'family', sl); if (l) labs.push({ t: l, c: '#c4673a' }); });
   return labs;
 }
@@ -1300,7 +1290,7 @@ function viewMonth(t) {
       '<span class="n">' + parseISO(d).getDate() + '</span>' + labs.slice(0, 5).map(l => '<span class="lab' + (l.ev ? ' ev' : '') + '" style="--c:' + l.c + '">' + esc(l.t) + '</span>').join('') +
       (labs.length > 5 ? '<span class="more">+' + (labs.length - 5) + ' more</span>' : '') + '</button>';
   }
-  return h + '</div><p class="hint" style="text-align:center">Events in each person’s color · <span style="display:inline-block;width:9px;height:9px;border-radius:3px;margin:0 3px;background:#c4673a"></span>our meals, breakfast to dinner' +
+  return h + '</div><p class="hint" style="text-align:center"><span style="display:inline-block;width:9px;height:9px;border-radius:3px;margin:0 3px;background:' + EVENT_COLOR + '"></span>events · <span style="display:inline-block;width:9px;height:9px;border-radius:3px;margin:0 3px;background:#c4673a"></span>our meals, breakfast to dinner' +
     (kidGroups().length ? '<br>Tap a day to see ' + esc(listWords(kidGroups().map(k => k.name + '’s'))) + ' meals too.' : '') + '</p>';
 }
 function slotRow(d, g, s, who) {
@@ -1489,9 +1479,7 @@ function openDay(d) {
 function openEvent(id, occ) {
   const ev = id && data.events[id] && !data.events[id].deleted ? data.events[id] : null;
   const date = ev ? ev.date : (occ || todayISO());
-  const who = ev ? ev.who : FAMILY;
   const rep = ev ? (ev.repeat || 'none') : 'none';
-  const names = data.settings.people.map(p => p.name).concat([FAMILY]);
   const opts = [['none', 'Doesn’t repeat'], ['weekly', 'Every week'], ['biweekly', 'Every 2 weeks'], ['monthly', 'Every month'], ['yearly', 'Every year']];
   openSheet(ev ? 'Edit event' : 'New event',
     '<form data-form="event">' +
@@ -1499,7 +1487,6 @@ function openEvent(id, occ) {
     '<div class="row2"><label class="field"><span>Date</span><input type="date" name="date" required value="' + date + '"></label>' +
     '<label class="field"><span>Time</span><input type="time" name="time" value="' + esc(ev ? ev.time || '' : '') + '"></label></div>' +
     '<p class="hint">Leave the time empty for an all-day item.</p>' +
-    '<div class="field"><span>Who</span><div class="chips">' + names.map(n => '<label class="chip" style="--c:' + personColor(n) + '"><input type="radio" name="who" value="' + esc(n) + '"' + (n === who ? ' checked' : '') + '><span>' + esc(n) + '</span></label>').join('') + '</div></div>' +
     '<label class="field"><span>Repeats</span><select name="repeat">' + opts.map(o => '<option value="' + o[0] + '"' + (o[0] === rep ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select></label>' +
     '<label class="field"><span>Notes</span><textarea name="notes" rows="2" placeholder="Optional">' + esc(ev ? ev.notes || '' : '') + '</textarea></label>' +
     (ev && rep !== 'none' ? '<p class="hint">Changes here apply to every repeat of this event.</p>' : '') +
@@ -1737,10 +1724,6 @@ function openPlanIt(id) {
     '<label class="field"><span>Meal</span><select name="slot">' + opts.map(x => '<option value="' + esc(x.g + '|' + x.s) + '"' + (x.g === g && x.s === def ? ' selected' : '') + '>' + esc(slotLabel(x.g, x.s)) + '</option>').join('') + '</select></label>' +
     '<div class="sheet-actions"><button class="btn primary" type="submit">Add to the plan</button></div></form>', { recipeId: id });
 }
-function personRow(p) {
-  return '<div class="person-row"><input type="color" value="' + okColor(p.color) + '" aria-label="Color"><input type="text" value="' + esc(p.name) + '" placeholder="Name" maxlength="24">' +
-    '<button type="button" class="icon-btn" data-act="rm-person" aria-label="Remove">' + svg('x') + '</button></div>';
-}
 function groupRow(g) {
   const fam = g.id === 'family';
   return '<div class="group-row" data-id="' + esc(g.id || '') + '"><input type="text" class="g-name" value="' + esc(g.name) + '" placeholder="Name (e.g. Sam)" maxlength="24">' +
@@ -1756,8 +1739,6 @@ function openSettings() {
   openSheet('Settings',
     '<form data-form="settings">' +
     '<label class="field"><span>Planner name</span><input type="text" name="name" maxlength="40" value="' + esc(s.name) + '"></label>' +
-    '<div class="field"><span>People</span><div id="peopleRows">' + s.people.map(personRow).join('') + '</div>' +
-    '<button type="button" class="btn sm ghost" data-act="add-person">' + svg('plus') + ' Add person</button></div>' +
     '<div class="field"><span>Meal plans</span><div id="groupRows">' + s.groups.map(groupRow).join('') + '</div>' +
     '<button type="button" class="btn sm ghost" data-act="add-group">' + svg('plus') + ' Add a separate plan</button></div>' +
     '<p class="hint">Each plan gets its own meals and its own section in Groceries, Pantry and Recipes. List the meals for each, separated by commas.</p>' +
@@ -2185,8 +2166,6 @@ const ACTIONS = {
     if (statusOf(base) === 'out') return;
     goOut(base, name, 'Ran out'); // tapping Out puts it on the grocery list
   },
-  'add-person': () => { $('#peopleRows').insertAdjacentHTML('beforeend', personRow({ name: '', color: '#7a6fb0' })); const ins = $$('#peopleRows input[type=text]'); ins[ins.length - 1].focus(); },
-  'rm-person': b => b.closest('.person-row').remove(),
   'add-group': () => { $('#groupRows').insertAdjacentHTML('beforeend', groupRow({ id: '', name: '', slots: ['Breakfast', 'Lunch', 'Dinner', 'Snacks'] })); const ins = $$('#groupRows .g-name'); ins[ins.length - 1].focus(); },
   'rm-group': b => { const row = b.closest('.group-row'); ask('Remove this plan? Meals already planned for it will be hidden.', 'Remove', () => row.remove(), { danger: true }); },
   'sync-now': () => { if (!syncOn()) return toast('Fill in username, repo and token first'); runSync(); },
@@ -2220,7 +2199,7 @@ const FORMS = {
     const fd = new FormData(f), title = String(fd.get('title') || '').trim(); if (!title) return;
     const date = String(fd.get('date') || '') || todayISO();
     const id = sheetCtx.eventId || uid(), prev = data.events[id], had = prev && !prev.deleted;
-    put('events', id, { title: title, date: date, time: String(fd.get('time') || ''), who: String(fd.get('who') || ''), repeat: String(fd.get('repeat') || 'none'),
+    put('events', id, { title: title, date: date, time: String(fd.get('time') || ''), repeat: String(fd.get('repeat') || 'none'),
       notes: String(fd.get('notes') || '').trim(), skip: had ? (prev.skip || []) : [], until: had ? (prev.until || '') : '' });
     if (ui.tab === 'calendar' && !had) { ui.calWeek = weekStartOf(date); ui.month = date.slice(0, 7); ui.sel = date; }
     closeSheet(); commit(); okToast(had ? 'Event saved' : 'Event added');
@@ -2296,8 +2275,6 @@ const FORMS = {
   },
   settings: f => {
     const fd = new FormData(f);
-    const people = $$('#peopleRows .person-row').map(r => ({ name: r.querySelector('input[type=text]').value.trim(), color: okColor(r.querySelector('input[type=color]').value) }))
-      .filter(p => p.name && p.name.toLowerCase() !== 'family');
     const list = v => String(v || '').split(',').map(s => s.replace(/\|/g, '').trim()).filter(Boolean).filter((s, i, a) => a.indexOf(s) === i);
     const gs = $$('#groupRows .group-row').map(r => {
       const name = r.querySelector('.g-name').value.trim(), slots = list(r.querySelector('.g-slots').value).slice(0, 6);
@@ -2305,7 +2282,7 @@ const FORMS = {
       return { id: id, name: name || (id === 'family' ? 'Family' : 'Plan'), slots: slots.length ? slots : ['Dinner'] };
     }).filter(g => g.name);
     const stores = list(fd.get('stores')).slice(0, 5);
-    data.settings = { name: String(fd.get('name') || '').trim() || 'Home', people: people, groups: gs, stores: stores.length ? stores : DEFAULT_STORES.slice(),
+    data.settings = { name: String(fd.get('name') || '').trim() || 'Home', people: [], groups: gs, stores: stores.length ? stores : DEFAULT_STORES.slice(),
       weekStart: fd.get('weekStart') === '1' ? 1 : 0, updatedAt: now() };
     data = normalize(data);
     ui.calWeek = weekStartOf(ui.calWeek); ui.mealWeek = weekStartOf(ui.mealWeek);
